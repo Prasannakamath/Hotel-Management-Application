@@ -9,7 +9,8 @@ const checkIfItemExists =
 const updateItem =
   'update "hotelManagement".menu set item_price=$2,item_calories=$3,instock=$4,rawmaterial=$5 where item_name=$1';
 
-const getItemByName = 'select * from "hotelManagement".menu where item_name=$1';
+const getItemById =
+  'select item_name,item_price,item_calories,instock,rawmaterial from "hotelManagement".menu where item_id=$1';
 
 const deleteItemByName =
   'delete from "hotelManagement".menu where item_name=$1';
@@ -21,7 +22,7 @@ module.exports = {
   addItem,
   checkIfItemExists,
   updateItem,
-  getItemByName,
+  getItemById,
   deleteItemByName,
   deleteItemById,
 };

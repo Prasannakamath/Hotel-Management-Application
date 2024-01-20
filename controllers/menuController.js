@@ -45,39 +45,46 @@ function addItem(content) {
 
 function updateItem(content) {
   return new Promise((resolve, reject) => {
-    pool.query(queries.checkIfItemExists, [content.name], (error, result) => {
-      if (error) reject(error);
-      if (result.rowCount > 0) {
-        pool.query(
-          queries.updateItem,
-          [
-            content.name,
-            content.price,
-            content.item_calories,
-            content.instock,
-            content.rawmaterial,
-          ],
-          (error, result) => {
-            if (error)
-              reject(
-                new Error(
-                  `Error occured while updating item: ${content.name}.\nError: ${error}`
-                )
+    console.log(content);
+    pool.query(
+      queries.checkIfItemExists,
+      [content.item_name],
+      (error, result) => {
+        if (error) reject(error);
+        if (result.rowCount > 0) {
+          pool.query(
+            queries.updateItem,
+            [
+              content.item_name,
+              content.item_price,
+              content.item_calories,
+              content.instock,
+              content.rawmaterial,
+            ],
+            (error, result) => {
+              if (error)
+                reject(
+                  new Error(
+                    `Error occured while updating item: ${content.item_name}.\nError: ${error}`
+                  )
+                );
+              pool.query(
+                queries.getItemById,
+                [content.item_id],
+                (error, result) => {
+                  if (error) reject(error);
+                  resolve(result.rows);
+                }
               );
-            pool.query(
-              queries.getItemByName,
-              [content.name],
-              (error, result) => {
-                if (error) reject(error);
-                resolve(result.rows);
-              }
-            );
-          }
-        );
-      } else {
-        reject(new Error(`No item found to update with name: ${content.name}`));
+            }
+          );
+        } else {
+          reject(
+            new Error(`No item found to update with name: ${content.name}`)
+          );
+        }
       }
-    });
+    );
   });
 }
 
@@ -98,9 +105,23 @@ function deleteItemByName(itemName) {
     });
   });
 }
+
+function getItemById(id) {
+  return new Promise((resolve, reject) => {
+    pool.query(queries.getItemById, [id], (error, result) => {
+      if (error) reject(error);
+      if (result.rowCount > 0) {
+        resolve(result.rows[0]);
+      } else {
+        reject(new Error("No Item Found"));
+      }
+    });
+  });
+}
 module.exports = {
   getAllItems,
   addItem,
   updateItem,
   deleteItemByName,
+  getItemById,
 };
