@@ -71,4 +71,22 @@ router.delete("/:id", (req, res) => {
     });
 });
 
+router.patch("/:id", (req, res) => {
+  let order_id = parseInt(req.params.id);
+  res.setHeader("content-type", "application/json");
+  orderController
+    .markOrderAsComplete(order_id)
+    .then((result) => {
+      let response = {
+        message:
+          "Order marked as complete. Cannot modify/delete order further.",
+        "order details": result,
+      };
+      res.end(JSON.stringify(response));
+    })
+    .catch((error) => {
+      res.end(error.toString());
+    });
+});
+
 module.exports = router;

@@ -6,26 +6,42 @@ const menuController = require("./menuController");
 function addOrder(order) {
   return new Promise((resolve, reject) => {
     if (order.order_id) {
-      pool.query(
-        orderQueries.addOrder,
-        [
-          order.order_id,
-          order.table_id,
-          order.item_id,
-          order.quantity,
-          order.parcel,
-        ],
-        (error, result) => {
-          if (error) reject(error);
-          resolve(result);
-        }
-      );
-    } else {
       pool
-        .query(orderQueries.getCountOfAllOrders)
+        .query(orderQueries.checkIfOrderIdExists, [order.order_id])
         .then((result) => {
           if (result.rowCount > 0) {
-            let order_id = parseInt(result.rows[0].count) + 1;
+            pool.query(
+              orderQueries.addOrder,
+              [
+                order.order_id,
+                order.table_id,
+                order.item_id,
+                order.quantity,
+                order.parcel,
+              ],
+              (error, result) => {
+                if (error) reject(error);
+                resolve(result);
+              }
+            );
+          } else {
+            reject(
+              new Error(
+                "Order does not exist. Create new Order without orderid"
+              )
+            );
+          }
+        })
+        .catch((error) => {
+          reject(error);
+        });
+    } else {
+      pool
+        .query(orderQueries.getMaxOrderId)
+        .then((result) => {
+          console.log(result);
+          if (result.rowCount > 0) {
+            let order_id = parseInt(result.rows[0].max) + 1;
             console.log(order_id);
             pool.query(
               orderQueries.addOrder,
@@ -49,7 +65,7 @@ function addOrder(order) {
     }
   });
 }
-
+//delete order
 function deleteItemByOrderId(item_id, order_id) {
   return new Promise((resolve, reject) => {
     pool.query(orderQueries.getOrderById, [order_id], (error, result) => {
@@ -57,7 +73,7 @@ function deleteItemByOrderId(item_id, order_id) {
       let itemsInOrder = result.rows;
       if (itemsInOrder.length > 0) {
         let targetItem = itemsInOrder.filter(
-          (item) => item.item_id === item_id
+          (item) => parseInt(item.item_id) === item_id
         );
         if (targetItem.length > 0) {
           pool.query(
@@ -65,7 +81,7 @@ function deleteItemByOrderId(item_id, order_id) {
             [order_id, item_id],
             (error, result) => {
               if (error) reject(error);
-              resolve(result);
+              resolve(targetItem);
             }
           );
         } else {
@@ -82,19 +98,27 @@ function deleteItemByOrderId(item_id, order_id) {
 
 function modifyOrder(order) {
   return new Promise((resolve, reject) => {
+    if (order.iscomplete)
+      reject(
+        new Error(
+          "Please use other endpoint to mark order as complete or remove iscomplete attribute to proceed."
+        )
+      );
     pool.query(orderQueries.getOrderById, [order.order_id], (error, result) => {
       if (error) reject(error);
       if (result.rowCount > 0) {
         let targetItem = result.rows.filter(
-          (item) => item.item_id === order.item_id
+          (item) => parseInt(item.item_id) === order.item_id
         );
         if (targetItem.length > 0) {
+          if (targetItem[0].iscomplete === true)
+            reject(new Error("Cannot update completed order"));
           pool.query(
             orderQueries.modifyOrderById,
             [order.order_id, order.item_id, order.quantity, order.parcel],
             (error, result) => {
               if (error) reject(error);
-              resolve(result);
+              resolve(order);
             }
           );
         } else {
@@ -129,10 +153,42 @@ function getAllOrders() {
   });
 }
 
+function markOrderAsComplete(order_id) {
+  return new Promise((resolve, reject) => {
+    pool
+      .query(orderQueries.getOrderById, [order_id])
+      .then((result) => {
+        if (result.rowCount > 0) {
+          let order = result.rows;
+          if (result.rows[0].iscomplete)
+            reject(
+              new Error("Order already marked complete. Please check order id")
+            );
+          pool
+            .query(orderQueries.updateOrderAsComplete, [order_id])
+            .then((result) => {
+              console.log(result);
+              order.map((orderObj) => {
+                delete orderObj.iscomplete;
+              });
+              resolve(order);
+            })
+            .catch((error) => {
+              reject(error);
+            });
+        }
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+}
+
 module.exports = {
   addOrder,
   deleteItemByOrderId,
   modifyOrder,
   getOrderById,
   getAllOrders,
+  markOrderAsComplete,
 };
